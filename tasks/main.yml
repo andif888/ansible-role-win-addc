@@ -1,0 +1,90 @@
+---
+# tasks file for ansible-role-win-addc
+- name: Windows Feature AD-Domain-Services and Tools
+  ansible.windows.win_feature:
+    name: AD-Domain-Services
+    state: present
+    include_sub_features: yes
+    include_management_tools: yes
+  register: win_feature
+
+- name: Reboot if installing AD-Domain-Services feature requires it
+  ansible.windows.win_reboot:
+  when: win_feature.reboot_required
+
+- name: Set DNS Server IPs on network interface 
+  ansible.windows.win_dns_client:
+    adapter_names: "{{ win_addc_dns_client_adapter }}"
+    ipv4_addresses: "{{ win_addc_dns_client_dns_server_ips }}"
+  when:
+    - win_addc_dns_client_adapter | length > 1
+    - win_addc_dns_client_dns_server_ips | length > 1
+
+- name: Ensure a server is a domain controller
+  ansible.windows.win_domain_controller:
+    dns_domain_name: "{{ win_addc_dns_domain_name }}"
+    domain_admin_user: "{{ win_addc_domain_admin_user }}"
+    domain_admin_password: "{{ win_addc_domain_admin_password }}"
+    safe_mode_password: "{{ win_addc_safe_mode_password }}"
+    state: domain_controller
+  register: win_domain_controller
+
+- name: Reboot if win_domain_controller requires it
+  ansible.windows.win_reboot:
+    post_reboot_delay: 10
+    pre_reboot_delay: 10
+    reboot_timeout: 1200
+  when: win_domain_controller.reboot_required
+
+- name: Wait for DNS available
+  ansible.windows.win_wait_for:
+    port: 53
+    delay: 10
+    sleep: 5
+    timeout: 600
+
+- name: DNS Service ListenAddresses
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\DNS\Parameters
+    name: ListenAddresses
+    data: "{{ win_addc_dns_listenaddresses }}"
+    type: multistring
+  notify: restart DNS
+
+- name: Check DNS Forwarders
+  ansible.windows.win_shell: |
+    $forwarders = Get-DnsServerForwarder
+    if (($forwarders).IPAddress.Length -gt 0)
+    {
+      if (($forwarders).IPAddress[0].IPAddressToString -ne "{{ win_addc_dns_forwarders[0] }}")
+      {
+        Write-Host "false"
+      }
+      else
+      {
+        Write-Host "true"
+      }
+    }
+    else 
+    {
+      Write-Host "true"
+    }
+  register: dnsforwarder_ok
+  changed_when: false
+
+- name: Remove DNS Forwarders
+  ansible.windows.win_shell: |
+    Remove-DnsServerForwarder -IPAddress (Get-DnsServerForwarder).IPAddress -Passthru -Confirm:$false -Force
+  when: dnsforwarder_ok.stdout is not match("true")
+
+- name: Add DNS Forwarders
+  ansible.windows.win_shell: |
+    Add-DnsServerForwarder -IPAddress {{ item }} -PassThru -Confirm:$false
+  loop: "{{ win_addc_dns_forwarders }}"
+  when: dnsforwarder_ok.stdout is not match("true")
+
+- name: Restart DNS
+  ansible.windows.win_service:
+    name: DNS
+    state: restarted
+  when: dnsforwarder_ok.stdout is not match("true")

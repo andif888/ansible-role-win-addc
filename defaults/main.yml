@@ -1,0 +1,37 @@
+---
+# defaults file for ansible-role-win-addc
+
+# @var win_addc_dns_client_adapter:description: >
+# Adapter name or list of adapter names for which to manage DNS settings (’*’ is supported as a wildcard value).
+# The adapter name used is the connection caption in the Network Control Panel or the InterfaceAlias of Get-DnsClientServerAddress.
+# Example: 
+# win_addc_dns_client_adapter: "{{ ansible_interfaces[0].connection_name }}"
+# @end
+win_addc_dns_client_adapter:
+
+# @var win_addc_dns_client_dns_server_ips:description: >
+# Single or ordered list of DNS servers (IPv4 and IPv6 addresses) to configure for lookup.
+# An empty list will configure the adapter to use the DHCP-assigned values on connections where DHCP is enabled, or disable DNS lookup on statically-configured connections.
+# IPv6 DNS servers can only be set on Windows Server 2012 or newer, older hosts can only set IPv4 addresses.
+# @end 
+win_addc_dns_client_dns_server_ips:
+
+# @var win_addc_dns_domain_name:description: The DNS name of the domain for which the targeted Windows host should be a DC
+win_addc_dns_domain_name: "acme.local"
+
+# @var win_addc_dns_forwarders:description: List of IP addresses of upstream DNS servers
+win_addc_dns_forwarders:
+  - "8.8.8.8"
+  - "8.8.4.4"
+# @var win_addc_dns_listenaddresses:description: List of IP address of the host on which it should listen to DNS requests
+win_addc_dns_listenaddresses:
+  - "{{ ansible_interfaces[0].ipv4.address }}"
+
+# @var win_addc_domain_admin_user:description: Username of a domain admin for the target domain (necessary to promote a domain controller).
+win_addc_domain_admin_user: "administrator@acme.local"
+
+# @var win_addc_domain_admin_password:description: Password for the specified domain admin user.
+win_addc_domain_admin_password: "SomeSecret343434"
+
+# @var win_addc_safe_mode_password:description: Safe mode password for the domain controller
+win_addc_safe_mode_password: "SomeSecret343434_safemode"

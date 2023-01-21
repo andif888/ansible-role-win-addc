@@ -1,0 +1,6 @@
+---
+# handlers file for ansible-role-win-addc
+- name: Restart DNS Service
+  ansible.windows.win_service:
+    name: DNS
+    state: restarted
