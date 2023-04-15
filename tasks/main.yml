@@ -17,6 +17,8 @@
     adapter_names: "{{ win_addc_dns_client_adapter }}"
     ipv4_addresses: "{{ win_addc_dns_client_dns_server_ips }}"
   when:
+    - win_addc_dns_client_adapter is defined
+    - win_addc_dns_client_dns_server_ips is defined
     - win_addc_dns_client_adapter | length > 1
     - win_addc_dns_client_dns_server_ips | length > 1
 
@@ -49,7 +51,7 @@
     name: ListenAddresses
     data: "{{ win_addc_dns_listenaddresses }}"
     type: multistring
-  notify: restart DNS
+  notify: Restart DNS Service
 
 - name: Check DNS Forwarders
   ansible.windows.win_shell: |
